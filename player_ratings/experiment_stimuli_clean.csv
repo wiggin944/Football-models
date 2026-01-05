@@ -1,0 +1,21 @@
+player,cluster_id,confidence_weight,final_rating
+Noren,4,1.0,10.0
+manneh,2,1.0,9.4
+Ludwig thorell,2,1.0,7.5
+ludvig Tidstrand,0,0.8,6.7
+ludvig svanberg,1,0.7,5.4
+Tchouante,1,0.72,5.4
+herman johansson,2,1.0,4.7
+stroud,2,1.0,4.6
+peterson*,3,0.51,4.5
+alex Johansson,6,0.95,4.5
+Uba Charles,5,0.91,4.5
+Tony Miettinen,1,0.73,4.3
+iqbal,4,1.0,4.2
+Tom Pettersson,4,1.0,3.1
+Timo Stavitski,2,1.0,3.0
+Romeo Leandersson(17),1,0.87,2.7
+Viktor Gustafsson,2,1.0,2.5
+Bang-Kittilsen,0,0.84,2.3
+jesper gustavsson,4,1.0,0.9
+jacob bergstrom,2,1.0,0.0
