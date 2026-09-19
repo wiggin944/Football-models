@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Environments / IDE
+.venv/
+venv/
+env/
+.idea/
+.vscode/
+
+# Raw StatsBomb data
+data/events/
+data/three_sixty/
+data/lineups/
+data/matches/
+
+# Local research history
+archive/
+
+# Intermediate outputs
+outputs/*
+!outputs/final/
+!outputs/final/**
+
+# Model checkpoints / temporary binaries
+*.pt
+*.pth
+*.ckpt
+*.npz
+
+# OS / temp
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+*.temp
+*.log

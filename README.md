@@ -1,6 +1,6 @@
 # Football Models
 
-A small collection of football modelling projects built in Python, covering probabilistic match simulation and unsupervised player-rating methods.
+A collection of football modelling projects built in Python, covering probabilistic match simulation, unsupervised player-rating methods and spatial football analytics.
 
 ## Projects
 
@@ -40,9 +40,28 @@ The pipeline:
 
 The model was tested on real squad data, including Mjällby AIF.
 
+### 3. Second-Ball 360
+
+[`second_ball_360/`](./second_ball_360)
+
+A coaching-oriented spatial modelling project using StatsBomb 360 data to study how player positioning around contested aerial contacts relates to second-ball readiness.
+
+The project:
+
+- reconstructs physical aerial contests from StatsBomb event semantics
+- defines and validates the first secure controlled action after the duel
+- audits and corrects the target to remove directly completed headed passes
+- engineers local support, spacing and incoming-ball-relative geometry
+- decomposes predictive information into pre-contact and post-contact stages
+- benchmarks XGBoost against several graph-neural-network formulations
+- uses grouped cross-validation and match-clustered bootstrap evaluation
+- finds that compact football-engineered geometry is more data-efficient than the tested GNNs on event-centred 360 snapshots
+
+The final pre-contact model is intended as a coaching/R&D diagnostic rather than a causal prescription.
+
 ## Tech
 
-Python · pandas · NumPy · SciPy · scikit-learn · maximum-likelihood estimation · Monte Carlo simulation · unsupervised learning
+Python · pandas · NumPy · SciPy · scikit-learn · XGBoost · PyTorch · graph neural networks · maximum-likelihood estimation · Monte Carlo simulation · unsupervised learning · spatial football analytics
 
 ## Related work
 
