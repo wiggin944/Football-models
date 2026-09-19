@@ -59,13 +59,27 @@ The project:
 
 The final pre-contact model is intended as a coaching/R&D diagnostic rather than a causal prescription.
 
+
+### 4. Tactical Style ML Service
+
+[`tactical_style_ml_service/`](./tactical_style_ml_service)
+
+A productionised version of the tactical-representation stage from my MSc football-modelling research.
+
+The service:
+
+- converts team-match data into 29 engineered tactical features
+- learns six continuous NMF tactical-style components rather than fixed tactical labels
+- exposes training and inference through a FastAPI service
+- includes input validation, out-of-distribution diagnostics and monitoring hooks
+- ships with synthetic demo artefacts rather than private research data
+- includes automated tests, Docker packaging and GitHub Actions CI
+
+The project is also maintained as a standalone repository at [`tactical-style-ml-service`](https://github.com/wiggin944/tactical-style-ml-service).
+
 ## Tech
 
 Python · pandas · NumPy · SciPy · scikit-learn · XGBoost · PyTorch · graph neural networks · maximum-likelihood estimation · Monte Carlo simulation · unsupervised learning · spatial football analytics
-
-## Related work
-
-For a more recent example of production-style ML engineering, see my [Tactical Style ML Service](https://github.com/wiggin944/tactical-style-ml-service), which packages part of my MSc football-modelling research behind FastAPI with tests, Docker and CI.
 
 ## Author
 

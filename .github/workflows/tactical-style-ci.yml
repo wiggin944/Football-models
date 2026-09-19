@@ -1,0 +1,45 @@
+name: Tactical Style ML Service CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tactical_style_ml_service/**"
+      - ".github/workflows/tactical-style-ci.yml"
+  pull_request:
+    paths:
+      - "tactical_style_ml_service/**"
+      - ".github/workflows/tactical-style-ci.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tactical_style_ml_service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pytest httpx
+      - name: Compile production modules
+        run: python -m compileall -q src
+      - name: Generate synthetic demo artefact
+        run: python -m scripts.create_demo_artifact
+      - name: Run tests
+        run: python -m pytest -v
+
+  docker:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tactical_style_ml_service
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t tactical-style-api:ci .
