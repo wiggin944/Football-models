@@ -245,7 +245,7 @@ def yahoo_daily(sym):
                 raw=hist[[col,"Open","Close"]].rename(columns={col:"date","Open":"po","Close":"pc"})
                 f.parent.mkdir(parents=True,exist_ok=True)
                 raw.to_csv(f,index=False)
-            raw["date"]=pd.to_datetime(raw["date"]).dt.date
+            raw["date"]=pd.to_datetime(raw["date"].astype(str).str.slice(0,10),errors="raise").dt.date  # preserve exchange-local calendar dates across DST
             raw["po"]=pd.to_numeric(raw["po"],errors="coerce")
             raw["pc"]=pd.to_numeric(raw["pc"],errors="coerce")
             raw=raw.dropna(subset=["date","po","pc"])
