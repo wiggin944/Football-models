@@ -114,7 +114,7 @@ def filings(ciks):
              AND n.uom IN ('USD','shares')
              AND n.segments IS NULL
              AND n.ddate BETWEEN DATE '2014-01-01' AND DATE '2026-09-30'
-             AND n.qtrs IN (0,1,4)"""
+             AND n.qtrs IN (0,1,2,3,4)"""
         df=db.execute(sql,params).fetchdf()
         return df
     finally:
