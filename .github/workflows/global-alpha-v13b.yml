@@ -20,7 +20,11 @@ jobs:
       - name: Validate code syntax
         run: python -m py_compile research/global_alpha/v16b_pooled_peer_ml.py
       - name: Execute pooled global nonlinear peer ablation
-        run: python -u research/global_alpha/v16b_pooled_peer_ml.py 2>&1 | tee v16b_peer_ml.log
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          python -u research/global_alpha/v16b_pooled_peer_ml.py 2>&1 | tee v16b_peer_ml.log
       - name: Upload complete results
         if: always()
         uses: actions/upload-artifact@v4
