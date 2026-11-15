@@ -41,7 +41,7 @@ def clean_frame(f):
         if r.tag not in TAG_KIND:continue
         kind,priority=TAG_KIND[r.tag]
         qtrs=int(r.qtrs)
-        if kind in FLOW_KIN and qtrs not in (1,4):continue
+        if kind in FLOW_KINDS and qtrs not in (1,4):continue
         if kind in BALANCE_KINDS and qtrs!=0:continue
         if r.uom!="USD" or not np.isfinite(float(r.value)):continue
         filed=as_date(r.filed)
