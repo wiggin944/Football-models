@@ -5,6 +5,7 @@ on:
       - research/global-alpha-v24-pit-membership-audit
     paths:
       - research/global_alpha/v24_us_membership_vs_price.py
+      - research/global_alpha/global_security_master.py
       - .github/workflows/global-alpha-v13b.yml
   workflow_dispatch:
 permissions:
@@ -19,6 +20,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install source and modelling packages
         run: python -m pip install numpy pandas scikit-learn requests yfinance
+      - name: Validate worldwide listing identity and fail-closed intraday data gates
+        run: python research/global_alpha/global_security_master.py
       - name: Compile audit
         run: python -m py_compile research/global_alpha/v24_us_membership_vs_price.py
       - name: Measure historical index-membership versus price-eligibility mismatch
