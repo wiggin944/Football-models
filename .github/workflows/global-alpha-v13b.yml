@@ -1,43 +1,47 @@
-name: Global Alpha v22 index-exit adjusted-price continuity audit
+name: Global Alpha v23 frozen-forecast missing-exit return repair
 on:
   push:
     branches:
-      - research/global-alpha-v22-exit-price-audit
+      - research/global-alpha-v23-return-bridge
     paths:
-      - research/global_alpha/v22_exit_price_continuity.py
+      - research/global_alpha/v23_original_prediction_return_bridge.py
       - .github/workflows/global-alpha-v13b.yml
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
-  continuity:
+  frozen-forecast-return-repair:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 45
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install price-check dependencies
-        run: python -m pip install pandas numpy requests yfinance scikit-learn
-      - name: Confirm source is syntactically valid
-        run: python -m py_compile research/global_alpha/v22_exit_price_continuity.py
-      - name: Verify original versus independent adjusted price histories
+      - name: Install modelling and price dependencies
+        run: python -m pip install numpy pandas pyarrow scikit-learn requests yfinance
+      - name: Retrieve original v20 SEC panel and unmodified v21 evaluation
+        run: |
+          mkdir -p source source_v21 source_v22
+          gh run download 43768169195 --repo wiggin944/Football-models --name global-alpha-v20b-full-us-peer-coverage --dir source
+          gh run download 43769190538 --repo wiggin944/Football-models --name global-alpha-v21-economic-factor-pilot --dir source_v21
+          gh run download 43770045005 --repo wiggin944/Football-models --name global-alpha-v22-index-exit-continuity --dir source_v22
+          test -s source/results/v20b_full_us_asfiled_ttm_peers.parquet
+          test -s source_v21/results/v21_exploratory_ablation.json
+          test -s source_v22/results/v22_exit_price_continuity_audit.json
+      - name: Static check
+        run: python -m py_compile research/global_alpha/v23_original_prediction_return_bridge.py
+      - name: Re-evaluate same frozen predictions using independently cross-checked outcome prices
         run: |
           set -o pipefail
-          python -u research/global_alpha/v22_exit_price_continuity.py 2>&1 | tee v22_continuity.log
-      - name: Verify independent QRVO source with overlapping daily returns
-        run: |
-          set -o pipefail
-          python -u research/global_alpha/v22b_qrvo_stooq_audit.py 2>&1 | tee v22b_qrvo.log
-      - name: Save strict historical exit-return audit
+          python -u research/global_alpha/v23_original_prediction_return_bridge.py 2>&1 | tee v23_original_prediction_bridge.log
+      - name: Persist corrected monthly returns and methodological audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v22-index-exit-continuity
+          name: global-alpha-v23-frozen-prediction-exit-bridge
           path: |
-            results/v22_exit_price_continuity_audit.json
-            v22_continuity.log
-            results/v22b_qrvo_source_fallback.json
-            v22b_qrvo.log
+            results/v23_patched_original_predictions.json
+            v23_original_prediction_bridge.log
           if-no-files-found: warn
           retention-days: 60
