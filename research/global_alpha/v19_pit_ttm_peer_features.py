@@ -27,7 +27,7 @@ CONCEPTS={
 }
 TAG_KIND={tag:(kind,i) for kind,ts in CONCEPTS.items() for i,tag in enumerate(ts)}
 FLOW_KINDS={"revenue","earnings","opcash"}
-BALANCE_KINDS=set(CONCEPTS)-FLOW_KIN
+BALANCE_KINDS=set(CONCEPTS)-FLOW_KINDS
 GAP_MIN,GAP_MAX=52,142
 MAX_STALENESS_DAYS=210
 MIN_PEERS=3
