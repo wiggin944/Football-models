@@ -1,39 +1,47 @@
-name: Global Alpha v19 verified SEC filing vintage checkpoint
+name: Global Alpha v19 SEC as-filed quarterly TTM quality gate
 on:
   push:
     branches:
       - research/global-alpha-v19-pit-quarterly-ttm
     paths:
-      - research/global_alpha/v19_raw_filing_checkpoint.py
-      - .github/workflows/global-alpha-v19-raw.yml
+      - research/global_alpha/v19_pit_ttm_peer_features.py
+      - .github/workflows/global-alpha-v13b.yml
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
-  pin-asfiled-source:
+  asfiled-quarterly-audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 18
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install source readers
-        run: python -m pip install duckdb pandas pyarrow numpy scikit-learn requests yfinance zstandard
-      - name: Confirm original filing source can compile
-        run: python -m py_compile research/global_alpha/v19_raw_filing_checkpoint.py
-      - name: Export US as-filed accession rows with PIT filing dates
+      - name: Install numerical/file dependencies
+        run: python -m pip install pandas numpy pyarrow
+      - name: Verify original SEC filing checkpoint and identity snapshot
+        run: |
+          mkdir -p source
+          gh run download 43765843223 --repo wiggin944/Football-models --name global-alpha-v19-original-filing-raw --dir source
+          test -s source/results/v19_original_sec_facts.parquet
+          test -s source/results/v19_2026_ticker_cik_map.parquet
+      - name: Validate anti-leakage and Q4/TTM reconstruction tests
+        run: |
+          python -m py_compile research/global_alpha/v19_pit_ttm_peer_features.py
+          python research/global_alpha/v19_pit_ttm_peer_features.py --test-only
+      - name: Build as-of quarterly TTM and peer-relative financial features
         run: |
           set -o pipefail
-          python -u research/global_alpha/v19_raw_filing_checkpoint.py 2>&1 | tee v19_raw.log
-      - name: Persist reusable vetted source files
+          python -u research/global_alpha/v19_pit_ttm_peer_features.py 2>&1 | tee v19_ttm_quality.log
+      - name: Preserve company-month features and full quality audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v19-original-filing-raw
+          name: global-alpha-v19-sec-ttm-peer-quality
           path: |
-            results/v19_original_sec_facts.parquet
-            results/v19_2026_ticker_cik_map.parquet
-            results/v19_raw_extract_audit.json
-            v19_raw.log
-          if-no-files-found: error
+            results/v19_pit_ttm_sector_peer_features.parquet
+            results/v19_ttm_quality_report.json
+            v19_ttm_quality.log
+          if-no-files-found: warn
           retention-days: 75
