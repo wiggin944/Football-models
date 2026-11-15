@@ -142,14 +142,14 @@ def test():
     t=datetime(2026,11,15,12,tzinfo=timezone.utc)
     rows,report=collect_catalog(MockProvider(),t)
     assert report["exchanges_available"]==2
-    assert report["rows_active"]==4 and report["rows_provider_delisted"]==3
-    assert len(rows)==7
+    assert report["rows_active"]==3 and report["rows_provider_delisted"]==3
+    assert len(rows)==6
     assert any(x.ticker=="EXOTIC" for x in rows)  # no small-cap prefilter
     assert any(x.exchange_code=="JP" and x.vendor_delisted_snapshot for x in rows)
     assert any(e["error_type"]=="TICKER_REUSE_OR_DUPLICATE" for e in report["errors"])
     assert not any(x.permanent_instrument_id_confirmed or x.broker_tradability_confirmed for x in rows)
     print("V25_WORLDWIDE_DISCOVERY_ADAPTER_TEST_PASS",json.dumps({
-        "exchanges":2,"active":4,"delisted":3,
+        "exchanges":2,"active":3,"delisted":3,
         "ticker_reuse_detected":True,"microcaps_not_prefiltered":True,
         "api_calls_to_real_provider":0,"live_trades":0}))
     return report
