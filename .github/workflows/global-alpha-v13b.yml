@@ -1,8 +1,8 @@
-name: Global Alpha v17C US SEC as-of historical coverage audit
+name: Global Alpha v17D SEC original-filing point-in-time features
 on:
   push:
     branches:
-      - research/global-alpha-v17c-us-filing-coverage
+      - research/global-alpha-v17d-asof-feature-store
     paths:
       - research/global_alpha/**
       - .github/workflows/global-alpha-v13b.yml
@@ -10,28 +10,31 @@ on:
 permissions:
   contents: read
 jobs:
-  audit-as-filed:
+  original-filing-features:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install numerical, Parquet and DuckDB packages
+      - name: Install research dependencies
         run: python -m pip install duckdb pandas pyarrow numpy scikit-learn requests yfinance
-      - name: Static validation
-        run: python -m py_compile research/global_alpha/v17c_us_filing_coverage.py
-      - name: Query SEC as-filed vintage coverage and filing accession facts
+      - name: Validate the as-of anti-leakage tests
+        run: |
+          python -m py_compile research/global_alpha/v17d_asof_fundamentals.py
+          python research/global_alpha/v17d_asof_fundamentals.py --synthetic-test
+      - name: Build original SEC-filing history and monthly features
         run: |
           set -o pipefail
-          python -u research/global_alpha/v17c_us_filing_coverage.py 2>&1 | tee v17c_filing_coverage.log
-      - name: Save audit evidence
+          python -u research/global_alpha/v17d_asof_fundamentals.py 2>&1 | tee v17d_asof_build.log
+      - name: Preserve dataset and source audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v17c-filing-coverage
+          name: global-alpha-v17d-asof-features
           path: |
-            results/v17c_us_filing_coverage.json
-            v17c_filing_coverage.log
+            results/v17d_asof_fundamental_features.parquet
+            results/v17d_asof_feature_report.json
+            v17d_asof_build.log
           if-no-files-found: warn
           retention-days: 30
