@@ -32,7 +32,10 @@ def get(url, target, json_output=False):
     err=None
     for attempt in range(5):
         try:
-            res=requests.get(url,timeout=70,headers={"User-Agent":"GlobalAlphaV13B/1.0","Accept":"application/vnd.github+json" if json_output else "*/*"})
+            headers={"User-Agent":"GlobalAlphaV16B/1.0","Accept":"application/vnd.github+json" if json_output else "*/*"}
+            if url.startswith("https://api.github.com/") and os.environ.get("GITHUB_TOKEN"):
+                headers["Authorization"]="Bearer "+os.environ["GITHUB_TOKEN"]
+            res=requests.get(url,timeout=70,headers=headers)
             res.raise_for_status()
             if len(res.content)<50: raise ValueError("Short response for "+url)
             target.parent.mkdir(parents=True,exist_ok=True)
