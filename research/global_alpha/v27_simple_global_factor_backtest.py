@@ -215,9 +215,6 @@ def interval(a,b,block=12,reps=8000,seed=SEED):
     return {"arithmetic_annualized_mean_difference_pp":round(float(d.mean()*1200),3),
       "descriptive_circular_12m_block_95pct_interval_pp":[round(float(x),3)
                for x in np.quantile(boots,[.025,.975])],
-      "fraction_36m_rolling_windows_outperform":round(float((pd.Series(
-                 d).rolling(36).apply(lambda z:np.prod(1+np.asarray(a,float)[
-                 0:1])*0 if False else np.mean(z),raw=False).dropna()>0).mean()),3),
       "paired_n_months":n}
 
 def rolling_realised_winshare(a,b,window=36):
@@ -333,7 +330,7 @@ def tests():
     assert all(abs(r.net_return-.05)<1e-12)
     assert r.turnover_oneway.iloc[0]==1
     assert r.turnover_oneway.iloc[1]>0
-    assert metric(r.net_return)["n_months"]==4 or True # metric requires >=10
+    assert np.isclose((1+r.net_return).prod(),1.05**4)
     print("V27_SYNTHETIC_ACCOUNTING_TEST_PASS",flush=True)
 
 def main():
