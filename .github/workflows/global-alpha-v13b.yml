@@ -1,47 +1,43 @@
-name: Global Alpha v20B full-US point-in-time peer feature audit
+name: Global Alpha v21 full US economic-factor exploratory backtest
 on:
   push:
     branches:
-      - research/global-alpha-v20b-full-us-peers
+      - research/global-alpha-v21-us-economic-context-pilot
     paths:
-      - research/global_alpha/v20b_full_us_pit_peer_quality.py
+      - research/global_alpha/v21_expanded_sec_signal_pilot.py
       - .github/workflows/global-alpha-v13b.yml
   workflow_dispatch:
 permissions:
   contents: read
   actions: read
 jobs:
-  full-us-peer:
+  matched-economic-factor-pilot:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 50
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install offline SEC feature dependencies
-        run: python -m pip install duckdb pandas pyarrow numpy requests
-      - name: Load verified original filing checkpoint
+      - name: Install modelling and source dependencies
+        run: python -m pip install numpy pandas pyarrow scikit-learn requests yfinance
+      - name: Retrieve verified as-filed full-universe features
         run: |
           mkdir -p source
-          gh run download 43767863979 --repo wiggin944/Football-models --name global-alpha-v20-full-us-original-filings --dir source
-          test -s source/results/v20_original_sec_facts.parquet
-          test -s source/results/v20_us_security_mapping.parquet
-      - name: Compile and test accounting reconstruction
-        run: |
-          python -m py_compile research/global_alpha/v20b_full_us_pit_peer_quality.py
-          python research/global_alpha/v19_pit_ttm_peer_features.py --test-only
-      - name: Build historical TTM and time-consistent SIC peers for expanded universe
+          gh run download 43768169195 --repo wiggin944/Football-models --name global-alpha-v20b-full-us-peer-coverage --dir source
+          test -s source/results/v20b_full_us_asfiled_ttm_peers.parquet
+      - name: Compile exploratory chronological experiment
+        run: python -m py_compile research/global_alpha/v21_expanded_sec_signal_pilot.py
+      - name: Test price-only versus fundamental and industry peers
         run: |
           set -o pipefail
-          python -u research/global_alpha/v20b_full_us_pit_peer_quality.py 2>&1 | tee v20b_full_peers.log
-      - name: Preserve expanded issuer panel and diagnostics
+          python -u research/global_alpha/v21_expanded_sec_signal_pilot.py 2>&1 | tee global_alpha_v21_pilot.log
+      - name: Preserve all research outputs and failure logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v20b-full-us-peer-coverage
+          name: global-alpha-v21-economic-factor-pilot
           path: |
-            results/v20b_full_us_asfiled_ttm_peers.parquet
-            results/v20b_us_peer_coverage_audit.json
-            v20b_full_peers.log
+            results/v21_exploratory_ablation.json
+            global_alpha_v21_pilot.log
           if-no-files-found: warn
           retention-days: 60
