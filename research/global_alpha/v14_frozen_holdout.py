@@ -370,7 +370,7 @@ def simple_bootstrap_paired(a,b,seed=29091,B=25000,block=3):
 def v14_main():
     global feat
     print("FROZEN_SETTINGS",json.dumps({"sample_seed":SEED,"start":START,"end":END,
-           "macro_extra":"3 month price-index returns of all 5 regions",
+           "macro_extra":"3 month price-index returns of all 5 regions, plus predeclared shock/drawdown/momentum interactions",
            "ridge_penalty":80,"selection":"top 30% long-only",
            "stock_bps":20,"fx_bps":30,
            "source_end":"2026-11-13","trade_cutoff":"end of each decision month"}),flush=True)
@@ -444,10 +444,22 @@ def v14_main():
             return np.concatenate([core[:-1],np.array(z,float),core[-1:]])
         feat=augmented
         macro=evaluate(reg,stocks[reg],indexes[reg],history[reg]["symbol_folders"],{})
+        def augmented_interactions(stock,market,mon):
+            # Raw market context is common to all companies in a decision month.
+            # Interactions let the model LEARN how it changes a firm's shock response.
+            expanded=augmented(stock,market,mon)
+            if expanded is None:return None
+            market_context=expanded[9:14]
+            own_context=expanded[[4,6,2]]   # relative shock, drawdown, 6-month trend
+            cross=np.outer(own_context,market_context).ravel()
+            return np.concatenate([expanded[:-1],cross,expanded[-1:]])
+        feat=augmented_interactions
+        interacted=evaluate(reg,stocks[reg],indexes[reg],history[reg]["symbol_folders"],{})
         feat=orig_feat
         fx_series=fx.get(STOCK_FX[reg]);usd_fx=fx.get("GBPUSD=X")
         region={"asof_cutoff_names":len(stocks[reg]),"models":{}}
-        for label,run in [("price",basic),("price_plus_global_market_context",macro)]:
+        for label,run in [("price",basic),("price_plus_global_market_context",macro),
+                          ("price_plus_global_market_interactions",interacted)]:
             tmp={}
             for strategy,monthly in run["monthly"].items():
                 gbp=convert_gbp(monthly,fx_series,strategy) if fx_series is not None else []
@@ -468,6 +480,7 @@ def v14_main():
         print("HOLDOUT_RESULT",reg,json.dumps({"names":len(stocks[reg]),
               "price":{k:v["gbp"] for k,v in region["models"]["price"].items()},
               "global_context":{k:v["gbp"] for k,v in region["models"]["price_plus_global_market_context"].items()},
+              "global_interactions":{k:v["gbp"] for k,v in region["models"]["price_plus_global_market_interactions"].items()},
               "etf_proxy":region.get("research_etf_proxy",{}).get("summary")},separators=(",",":")),flush=True)
     feat=orig_feat
     Path("results").mkdir(exist_ok=True)
