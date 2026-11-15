@@ -1,43 +1,37 @@
-name: Global Alpha v21 full US economic-factor exploratory backtest
+name: Global Alpha v22 index-exit adjusted-price continuity audit
 on:
   push:
     branches:
-      - research/global-alpha-v21-us-economic-context-pilot
+      - research/global-alpha-v22-exit-price-audit
     paths:
-      - research/global_alpha/v21_expanded_sec_signal_pilot.py
+      - research/global_alpha/v22_exit_price_continuity.py
       - .github/workflows/global-alpha-v13b.yml
   workflow_dispatch:
 permissions:
   contents: read
-  actions: read
 jobs:
-  matched-economic-factor-pilot:
+  continuity:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 18
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install modelling and source dependencies
-        run: python -m pip install numpy pandas pyarrow scikit-learn requests yfinance
-      - name: Retrieve verified as-filed full-universe features
-        run: |
-          mkdir -p source
-          gh run download 43768169195 --repo wiggin944/Football-models --name global-alpha-v20b-full-us-peer-coverage --dir source
-          test -s source/results/v20b_full_us_asfiled_ttm_peers.parquet
-      - name: Compile exploratory chronological experiment
-        run: python -m py_compile research/global_alpha/v21_expanded_sec_signal_pilot.py
-      - name: Test price-only versus fundamental and industry peers
+      - name: Install price-check dependencies
+        run: python -m pip install pandas numpy requests yfinance scikit-learn
+      - name: Confirm source is syntactically valid
+        run: python -m py_compile research/global_alpha/v22_exit_price_continuity.py
+      - name: Verify original versus independent adjusted price histories
         run: |
           set -o pipefail
-          python -u research/global_alpha/v21_expanded_sec_signal_pilot.py 2>&1 | tee global_alpha_v21_pilot.log
-      - name: Preserve all research outputs and failure logs
+          python -u research/global_alpha/v22_exit_price_continuity.py 2>&1 | tee v22_continuity.log
+      - name: Save strict historical exit-return audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v21-economic-factor-pilot
+          name: global-alpha-v22-index-exit-continuity
           path: |
-            results/v21_exploratory_ablation.json
-            global_alpha_v21_pilot.log
+            results/v22_exit_price_continuity_audit.json
+            v22_continuity.log
           if-no-files-found: warn
           retention-days: 60
