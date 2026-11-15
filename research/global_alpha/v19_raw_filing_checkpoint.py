@@ -25,7 +25,7 @@ if not len(raw) or len(raw)<20000:raise RuntimeError("Raw as-filed SEC extract u
 assert raw.cik.nunique()==len(ciks)
 assert raw.adsh.notna().all() and raw.filed.notna().all()
 assert raw.tag.notna().all() and raw.value.notna().all()
-assert raw.qtrs.isin([0,1,4]).all()
+assert raw.qtrs.isin([0,1,2,3,4]).all()
 assert raw.form.isin(["10-K","10-Q"]).all()
 assert raw.accepted.notna().all()
 files={"filing_extract":"v19_original_sec_facts.parquet",
@@ -37,7 +37,7 @@ matches[cols].to_parquet(OUT/files["identity_snapshot"],index=False,compression=
 sizes={k:(OUT/v).stat().st_size for k,v in files.items()}
 sha={k:hashlib.sha256((OUT/v).read_bytes()).hexdigest() for k,v in files.items()}
 audit={
- "version":"v19_raw_filing_checkpoint","record_count":len(raw),
+ "version":"v19_raw_with_YTD_quarters_0_1_2_3_4","record_count":len(raw),
  "companies":int(raw.cik.nunique()),"unique_accessions":int(raw.adsh.nunique()),
  "accepted_timestamps":int(raw.accepted.notna().sum()),
  "reported_groups":raw.qtrs.value_counts().to_dict(),
