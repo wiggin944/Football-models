@@ -1,43 +1,45 @@
-name: Global Alpha v22 index-exit adjusted-price continuity audit
+name: Global Alpha v23 verified index-exit return replay
 on:
   push:
     branches:
-      - research/global-alpha-v22-exit-price-audit
+      - research/global-alpha-v23-exit-repair-replay
     paths:
-      - research/global_alpha/v22_exit_price_continuity.py
+      - research/global_alpha/v23_verified_exit_replay.py
       - .github/workflows/global-alpha-v13b.yml
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
-  continuity:
+  audit-repaired-returns:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 40
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install price-check dependencies
-        run: python -m pip install pandas numpy requests yfinance scikit-learn
-      - name: Confirm source is syntactically valid
-        run: python -m py_compile research/global_alpha/v22_exit_price_continuity.py
-      - name: Verify original versus independent adjusted price histories
+      - name: Install original v21 modelling dependencies
+        run: python -m pip install numpy pandas pyarrow scikit-learn requests yfinance
+      - name: Retrieve previously verified point-in-time data
+        run: |
+          mkdir -p source/v20 source/v22
+          gh run download 43768169195 --repo wiggin944/Football-models --name global-alpha-v20b-full-us-peer-coverage --dir source/v20
+          gh run download 43769872137 --repo wiggin944/Football-models --name global-alpha-v22-index-exit-continuity --dir source/v22
+          test -s source/v20/results/v20b_full_us_asfiled_ttm_peers.parquet
+          test -s source/v22/results/v22_exit_price_continuity_audit.json
+      - name: Compile before model rerun
+        run: python -m py_compile research/global_alpha/v23_verified_exit_replay.py
+      - name: Replay only independently validated returns; fail closed on QRVO
         run: |
           set -o pipefail
-          python -u research/global_alpha/v22_exit_price_continuity.py 2>&1 | tee v22_continuity.log
-      - name: Verify independent QRVO source with overlapping daily returns
-        run: |
-          set -o pipefail
-          python -u research/global_alpha/v22b_qrvo_stooq_audit.py 2>&1 | tee v22b_qrvo.log
-      - name: Save strict historical exit-return audit
+          python -u research/global_alpha/v23_verified_exit_replay.py 2>&1 | tee v23_verified_exit_replay.log
+      - name: Save data-quality-controlled research outcome
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v22-index-exit-continuity
+          name: global-alpha-v23-verified-exit-replay
           path: |
-            results/v22_exit_price_continuity_audit.json
-            v22_continuity.log
-            results/v22b_qrvo_source_fallback.json
-            v22b_qrvo.log
+            results/v23_repaired_exploratory_return_audit.json
+            v23_verified_exit_replay.log
           if-no-files-found: warn
           retention-days: 60
