@@ -12,6 +12,7 @@ import json,math
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import yfinance as yf
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
@@ -41,10 +42,6 @@ def finance_data(row,cols,with_interactions=False):
     return np.r_[value,miss]
 
 def load_prices():
-    symbols=sorted(x["path"] for x in price.tree(
-        next(x["sha"] for x in price.tree(
-            next(x["sha"] for x in price.tree(price.PIN) if x["path"]=="data"))
-            if x["path"]=="sp500") and []]) if False else None
     # Source names from the pinned full historical S&P constituent tree.
     root=price.tree(price.PIN)
     data=next(x["sha"] for x in root if x["path"]=="data")
@@ -134,7 +131,8 @@ def rank_ic(rows,scores):
     if len(obs)<30:return None
     df=pd.DataFrame({"score":[scores[r["symbol"]] for r in obs],
                      "return":[r["label"] for r in obs]})
-    return float(df.score.corr(df["return"],method="spearman"))
+    val=float(df.score.corr(df["return"],method="spearman"))
+    return val if np.isfinite(val) else None
 
 def backtest(panel):
     records={k:[] for k in ALL_MODELS}
@@ -186,6 +184,26 @@ def calc(rows):
         "avg_rank_ic_observed":round(float(np.mean([r["spearman_ic_observed"] for r in rows
             if r["spearman_ic_observed"] is not None])),4)}
 
+def spy_total_return_benchmark():
+    """One SPY dollar held through each matching open-to-open monthly interval."""
+    bars=yf.Ticker("SPY").history(start="2024-01-01",end="2025-09-05",
+                                 auto_adjust=True,actions=False)
+    if bars.empty:raise RuntimeError("SPY dividend-adjusted benchmark unavailable")
+    x=bars.reset_index()
+    d="Date" if "Date" in x.columns else "Datetime"
+    x["month"]=pd.to_datetime(x[d].astype(str).str.slice(0,10)).dt.strftime("%Y-%m")
+    opening=x.groupby("month")["Open"].first().to_dict()
+    out=[]
+    for n,mon in enumerate(pd.period_range(E0,E1,freq="M")):
+        i=str(mon+1);j=str(mon+2)
+        a=float(opening.get(i,float("nan")))
+        b=float(opening.get(j,float("nan")))
+        ret=b/a-1-(COST_ONE_WAY if n==0 else 0) if np.isfinite(a) and np.isfinite(b) and a>0 else None
+        out.append({"month":str(mon),"ret":ret,"missing":[] if ret is not None else ["SPY"],
+                    "turnover":1 if n==0 else 0,
+                    "spearman_ic_observed":None})
+    return {"metrics":calc(out),"monthly":out}
+
 def main():
     if not SRC.exists():raise RuntimeError("Missing verified v20B source")
     data=pd.read_parquet(SRC)
@@ -210,6 +228,7 @@ def main():
        "features":"SEC original-filing Q4/TTM economics and SIC2 peer median differential",
        "fair_comparison":"Identical US price-eligible rows, labels, execution and costs across methods",
        "methods":{method:{"metrics":calc(rows),"monthly":rows} for method,rows in results.items()},
+       "SPY_total_return_research_benchmark":spy_total_return_benchmark(),
        "cohort_quality":quality,
        "limitations":[
            "Historical index archive contains ticker spans and is NOT a proven PIT index-membership master.",
@@ -227,6 +246,7 @@ def main():
     print("V21_RESULTS",json.dumps({
        "months":len(quality),
        "eligible_range":[min(q["decision_cohort"] for q in quality),max(q["decision_cohort"] for q in quality)],
-       "metrics":{k:calc(v) for k,v in results.items()}},separators=(",",":")),flush=True)
+       "metrics":{k:calc(v) for k,v in results.items()},
+       "SPY":report["SPY_total_return_research_benchmark"]["metrics"]},separators=(",",":")),flush=True)
 
 if __name__=="__main__":main()
