@@ -17,7 +17,7 @@ from sklearn.linear_model import Ridge
 
 REPO="AndyLongest/HistoricalIndexPrices"
 PIN="bdb5c01084b314a94edfad155547d9373d0d8191"
-REGIONS=["sp500","eurostoxx50","nikkei225","hsi","csi300"]
+REGIONS=["sp500","eurostoxx50","nikkei225","hsi"]
 SEED="globalalpha-v13-global-sample-20261115"
 START="2025-08"
 END="2026-09"
@@ -370,7 +370,7 @@ def simple_bootstrap_paired(a,b,seed=29091,B=25000,block=3):
 def v14_main():
     global feat
     print("FROZEN_SETTINGS",json.dumps({"sample_seed":SEED,"start":START,"end":END,
-           "macro_extra":"3 month price-index returns of all 5 regions, plus predeclared shock/drawdown/momentum interactions",
+           "macro_extra":"3 month price-index returns of four complete regions, plus shock/drawdown/momentum interactions; post-inspection repair",
            "ridge_penalty":80,"selection":"top 30% long-only",
            "stock_bps":20,"fx_bps":30,
            "source_end":"2026-11-13","trade_cutoff":"end of each decision month",
@@ -412,6 +412,15 @@ def v14_main():
         stocks[reg]=enhanced
         print("STITCHED",reg,len(enhanced),"/",len(original),"error_count",
               sum(x.startswith(reg+":") for x in errors),flush=True)
+    # Refuse to silently truncate contextual features to one month due to a missing index.
+    required=pd.period_range(HOLDOUT_START,"2026-10",freq="M").strftime("%Y-%m")
+    invalid_index={}
+    for region,idx in indexes.items():
+        absent=[m for m in required if m not in idx.index or not np.isfinite(float(idx.loc[m,"close"]))]
+        if absent:invalid_index[region]=absent
+    print("MACRO_INDEX_COVERAGE",json.dumps(invalid_index),flush=True)
+    if invalid_index:
+        raise RuntimeError(f"Complete contextual holdout requires continuous four-market index series: {invalid_index}")
     # Frozen ancillary data. ETF comparators are US-listed research proxies,
     # not assertions of UK ISA investability.
     ext={}
@@ -423,8 +432,8 @@ def v14_main():
         try:ext[reg]=raw_monthly_yahoo(code)
         except Exception as e:errors["ETF:"+reg]=str(e)
     orig_feat=feat
-    results={"version":"v14_frozen_2025_2026_probe","source_sha":PIN,
-             "cutoff":CUTOFF,"results_not_seen_before_code_freeze":True,
+    results={"version":"v14D_exploratory_four-market_context_repair","source_sha":PIN,
+             "cutoff":CUTOFF,"results_not_seen_before_code_freeze":False,
              "not_prospective":True,
              "research_only":True,"no_order_placement":True,
              "errors":errors,"counts":history,"regions":{}}
@@ -452,7 +461,7 @@ def v14_main():
             # Interactions let the model LEARN how it changes a firm's shock response.
             expanded=augmented(stock,market,mon)
             if expanded is None:return None
-            market_context=expanded[9:14]
+            market_context=expanded[9:9+len(REGIONS)]
             own_context=expanded[[4,6,2]]   # relative shock, drawdown, 6-month trend
             cross=np.outer(own_context,market_context).ravel()
             return np.concatenate([expanded[:-1],cross,expanded[-1:]])
@@ -487,7 +496,7 @@ def v14_main():
               "etf_proxy":region.get("research_etf_proxy",{}).get("summary")},separators=(",",":")),flush=True)
     feat=orig_feat
     Path("results").mkdir(exist_ok=True)
-    Path("results/v14_frozen_holdout_results.json").write_text(json.dumps(results,indent=2))
+    Path("results/v14d_four_market_context_results.json").write_text(json.dumps(results,indent=2))
     print("V14_COMPLETE",json.dumps({"evaluated":list(results["regions"]),
               "source_failures":len(errors),"research_only":True}),flush=True)
 
