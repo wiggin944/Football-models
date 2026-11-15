@@ -1,8 +1,8 @@
-name: Global Alpha v17B SEC as-filed remote DuckDB query
+name: Global Alpha v17C US SEC as-of historical coverage audit
 on:
   push:
     branches:
-      - research/global-alpha-v17b-asfiled-mirror
+      - research/global-alpha-v17c-us-filing-coverage
     paths:
       - research/global_alpha/**
       - .github/workflows/global-alpha-v13b.yml
@@ -10,24 +10,28 @@ on:
 permissions:
   contents: read
 jobs:
-  inspect:
+  audit-as-filed:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install DuckDB
-        run: python -m pip install duckdb requests pandas
-      - name: Audit remote SEC point-in-time filing vintages
+      - name: Install numerical, Parquet and DuckDB packages
+        run: python -m pip install duckdb pandas pyarrow numpy scikit-learn requests yfinance
+      - name: Static validation
+        run: python -m py_compile research/global_alpha/v17c_us_filing_coverage.py
+      - name: Query SEC as-filed vintage coverage and filing accession facts
         run: |
           set -o pipefail
-          python -u research/global_alpha/v17b_hf_duckdb_probe.py 2>&1 | tee v17b_hf_probe.log
-      - name: Save source audit
+          python -u research/global_alpha/v17c_us_filing_coverage.py 2>&1 | tee v17c_filing_coverage.log
+      - name: Save audit evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v17b-mirror-source-audit
+          name: global-alpha-v17c-filing-coverage
           path: |
-            results/v17b_huggingface_asfiled_probe.json
-            v17b_hf_probe.log
+            results/v17c_us_filing_coverage.json
+            v17c_filing_coverage.log
           if-no-files-found: warn
           retention-days: 30
