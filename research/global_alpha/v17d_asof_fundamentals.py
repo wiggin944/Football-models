@@ -5,6 +5,8 @@ Read-only exploratory data pipeline. Market price history and company identities
 are not yet survivorship-free. No investment strategy or live orders.
 """
 import argparse,collections,datetime,io,json,math
+from http.server import ThreadingHTTPServer,BaseHTTPRequestHandler
+from threading import Thread
 from pathlib import Path
 import numpy as np,pandas as pd,requests,duckdb
 import v14_frozen_holdout as v
@@ -50,23 +52,75 @@ def filings(ciks):
     host=requests.utils.urlparse(direct).hostname or ""
     if not host.endswith(".hf.co") or host=="huggingface.co":
         raise RuntimeError("Expected an authorised Hugging Face CDN redirect, got "+host)
-    print("SIGNED_CDN_SOURCE",host,"bytes",redirect.headers.get("Content-Length"),flush=True)
+    size=int(redirect.headers["Content-Length"])
+    print("SIGNED_CDN_SOURCE",host,"bytes",size,flush=True)
+    # DuckDB 1.x probes for a sibling .wal recovery file even in READ_ONLY mode.
+    # A signed CDN URL valid ONLY for the database cannot fetch that sibling,
+    # producing HTTP 403 (see DuckDB PR #28498). A loopback read-only adapter
+    # returns 404 for the non-existent WAL and forwards ONLY bounded byte-range
+    # GETs to the authorised file URL. Never exposes the signed URL in output.
+    class ReadOnlyRange(BaseHTTPRequestHandler):
+        protocol_version="HTTP/1.1"
+        def log_message(self,*args):pass
+        def do_HEAD(self):
+            if self.path!="/sec_edgar.duckdb":
+                self.send_error(404);return
+            self.send_response(200)
+            self.send_header("Content-Length",str(size))
+            self.send_header("Accept-Ranges","bytes")
+            self.send_header("Content-Type","application/octet-stream")
+            self.end_headers()
+        def do_GET(self):
+            if self.path!="/sec_edgar.duckdb":
+                self.send_error(404);return
+            value=self.headers.get("Range","")
+            if not value.startswith("bytes="):
+                self.send_error(416,"Range requests required");return
+            try:
+                a,b=value[6:].split("-",1)
+                start,end=int(a),int(b)
+                if start<0 or end<start or end-start>8*1024*1024:
+                    self.send_error(416,"Invalid or oversized range");return
+                with requests.get(direct,headers={"Range":value},timeout=(15,90),stream=True) as upstream:
+                    if upstream.status_code!=206:
+                        self.send_error(502,"Upstream denied bounded range");return
+                    self.send_response(206)
+                    for k in ("Content-Type","Content-Length","Content-Range","Accept-Ranges","ETag"):
+                        if upstream.headers.get(k):self.send_header(k,upstream.headers[k])
+                    self.end_headers()
+                    for buf in upstream.iter_content(1024*128):
+                        if buf:self.wfile.write(buf)
+            except (ValueError,TypeError):
+                self.send_error(416,"Invalid range")
+            except (ConnectionError,BrokenPipeError):
+                pass
+            except Exception as error:
+                print("RANGE_PROXY_IO_ERROR",type(error).__name__,str(error)[:120],flush=True)
+    proxy=ThreadingHTTPServer(("127.0.0.1",0),ReadOnlyRange)
+    thread=Thread(target=proxy.serve_forever,daemon=True);thread.start()
+    print("LOOPBACK_READ_ONLY_RANGE_READY",proxy.server_port,flush=True)
     db.execute("SET threads=4")
-    db.execute("ATTACH ? AS filings (READ_ONLY)",[direct])
-    params=list(ciks)+list(TAGS)
-    sql=f"""SELECT s.cik,s.adsh,s.filed,s.accepted,s.form,s.sic,
-         n.tag,n.ddate,n.qtrs,n.uom,n.value
-       FROM filings.main.numbers n JOIN filings.main.submissions s ON s.adsh=n.adsh
-       WHERE s.cik IN ({','.join('?' for _ in ciks)})
-         AND s.form IN ('10-Q','10-K')
-         AND s.filed BETWEEN DATE '2015-01-01' AND DATE '2026-09-30'
-         AND n.tag IN ({','.join('?' for _ in TAGS)})
-         AND n.uom IN ('USD','shares')
-         AND n.segments IS NULL
-         AND n.ddate BETWEEN DATE '2014-01-01' AND DATE '2026-09-30'
-         AND n.qtrs IN (0,1,4)"""
-    df=db.execute(sql,params).fetchdf()
-    return df
+    try:
+        db.execute("ATTACH ? AS filings (READ_ONLY)",
+                   [f"http://127.0.0.1:{proxy.server_port}/sec_edgar.duckdb"])
+        params=list(ciks)+list(TAGS)
+        sql=f"""SELECT s.cik,s.adsh,s.filed,s.accepted,s.form,s.sic,
+             n.tag,n.ddate,n.qtrs,n.uom,n.value
+           FROM filings.main.numbers n JOIN filings.main.submissions s ON s.adsh=n.adsh
+           WHERE s.cik IN ({','.join('?' for _ in ciks)})
+             AND s.form IN ('10-Q','10-K')
+             AND s.filed BETWEEN DATE '2015-01-01' AND DATE '2026-09-30'
+             AND n.tag IN ({','.join('?' for _ in TAGS)})
+             AND n.uom IN ('USD','shares')
+             AND n.segments IS NULL
+             AND n.ddate BETWEEN DATE '2014-01-01' AND DATE '2026-09-30'
+             AND n.qtrs IN (0,1,4)"""
+        df=db.execute(sql,params).fetchdf()
+        return df
+    finally:
+        db.close()
+        proxy.shutdown()
+        proxy.server_close()
 def availability(filed):
     """Use a conservative five-day filing delay, no guessing press release time."""
     return filed+datetime.timedelta(days=5)
