@@ -10,9 +10,9 @@ FILES={
 "developed_ex_us_quality":"Developed_ex_US_6_Portfolios_ME_OP_CSV.zip",
 "developed_ex_us_momentum":"Developed_ex_US_6_Portfolios_ME_Prior_12_2_CSV.zip",
 "developed_ex_us_market":"Developed_ex_US_5_Factors_CSV.zip",
-"emerging_value":"Emerging_6_Portfolios_ME_BE-ME_CSV.zip",
-"emerging_quality":"Emerging_6_Portfolios_ME_OP_CSV.zip",
-"emerging_momentum":"Emerging_6_Portfolios_ME_Prior_12_2_CSV.zip",
+"emerging_value":"Emerging_Markets_6_Portfolios_ME_BE-ME_CSV.zip",
+"emerging_quality":"Emerging_Markets_6_Portfolios_ME_OP_CSV.zip",
+"emerging_momentum":"Emerging_Markets_6_Portfolios_ME_Prior_12_2_CSV.zip",
 "emerging_market":"Emerging_5_Factors_CSV.zip",
 }
 BASE="https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/"
