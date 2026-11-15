@@ -1,0 +1,77 @@
+name: Global Alpha v17D point-in-time feature quality audit
+on:
+  push:
+    branches:
+      - research/global-alpha-v17d-asof-feature-store
+    paths:
+      - .github/workflows/global-alpha-v17d-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download completed v17D data artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: global-alpha-v17d-asof-features
+          run-id: 43761156057
+          github-token: ${{ github.token }}
+          path: .
+      - name: Install Parquet reader
+        run: python -m pip install numpy pandas pyarrow
+      - name: Audit feature age, disclosure leaks, and real coverage
+        run: |
+          set -o pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import numpy as np
+          import pandas as pd
+          p=Path("results/v17d_asof_fundamental_features.parquet")
+          d=pd.read_parquet(p)
+          d["decision_date"]=pd.to_datetime(d["decision_date"])
+          t=d[d.month.between("2025-08","2026-09")].copy()
+          out={"rows":len(d),"companies":int(d.cik.nunique()),"months":int(d.month.nunique()),
+               "eval_rows":len(t),"eval_months":int(t.month.nunique()),"eval_companies":int(t.cik.nunique()),
+               "negative_net_income_observations":int((t.net_income_negative==1).sum()),
+               "coverage":{},"lag_days":{},"feature_ranges":{},"leak_checks":{}}
+          for k in ["revenue_yoy","net_margin","leverage_liabilities_assets","cash_assets"]:
+              out["coverage"][k]=round(float(t[k].notna().mean()),4)
+              v=t[k].dropna()
+              out["feature_ranges"][k]={"median":round(float(v.median()),4),"p01":round(float(v.quantile(.01)),4),"p99":round(float(v.quantile(.99)),4)}
+          for k in [x for x in t if x.endswith("_lag_days")]:
+              x=t[k].dropna()
+              if len(x):
+                  out["lag_days"][k]={"median":round(float(x.median()),1),
+                         "p90":round(float(x.quantile(.9)),1),"p99":round(float(x.quantile(.99)),1),
+                         "pct_over_180":round(float((x>180).mean()),3),
+                         "pct_over_365":round(float((x>365).mean()),3),
+                         "pct_over_730":round(float((x>730).mean()),3)}
+          for f in ["latest_revenue_release","latest_income_release","latest_revenue_period"]:
+              released=pd.to_datetime(d[f],errors="coerce")
+              leaking=(released.notna()&(released>d.decision_date))
+              out["leak_checks"][f+"_after_decision"]=int(leaking.sum())
+          out["fresh_180_revenue_yoy_coverage"]=round(float((t.revenue_yoy.notna()&(t.sales_lag_days<=180)).mean()),4)
+          out["fresh_180_net_margin_coverage"]=round(float((t.net_margin.notna()&(t.sales_lag_days<=180)&(t.earnings_lag_days<=180)).mean()),4)
+          out["fresh_365_cash_assets_coverage"]=round(float((t.cash_assets.notna()&(t.cash_lag_days<=365)&(t.assets_lag_days<=365)).mean()),4)
+          out["research_only"]=True
+          Path("results_audit").mkdir(exist_ok=True)
+          Path("results_audit/v17d_quality_audit.json").write_text(json.dumps(out,indent=2))
+          d.to_csv("results_audit/v17d_asof_features.csv",index=False)
+          print("V17D_QUALITY_AUDIT",json.dumps(out,separators=(",",":")),flush=True)
+          if any(out["leak_checks"].values()):raise SystemExit("Detected filing-date lookahead")
+          if out["rows"]!=4617:raise SystemExit("Unexpected output row count")
+          PY
+      - name: Preserve readable CSV and quality audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: global-alpha-v17d-staleness-audit
+          path: results_audit/
+          if-no-files-found: warn
+          retention-days: 30
