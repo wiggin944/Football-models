@@ -6,6 +6,7 @@ on:
     paths:
       - research/global_alpha/v25_global_intraday_paper_engine.py
       - research/global_alpha/v25_global_intraday_data_audit.py
+      - research/global_alpha/v25_worldwide_listings_adapter.py
       - .github/workflows/global-alpha-v13b.yml
   workflow_dispatch:
 permissions:
@@ -23,11 +24,14 @@ jobs:
           python -m py_compile research/global_alpha/global_security_master.py
           python -m py_compile research/global_alpha/v25_global_intraday_paper_engine.py
           python -m py_compile research/global_alpha/v25_global_intraday_data_audit.py
+          python -m py_compile research/global_alpha/v25_worldwide_listings_adapter.py
       - name: Test global as-of listing identity and time-aware paper execution
         run: |
           set -o pipefail
           python research/global_alpha/global_security_master.py
           python research/global_alpha/v25_global_intraday_paper_engine.py 2>&1 | tee v25_paper_engine_test.log
+      - name: Test all-exchange active plus delisted discovery (no credential used)
+        run: python research/global_alpha/v25_worldwide_listings_adapter.py --self-test
       - name: Audit eleven markets for real recent five-minute research bars
         run: |
           set -o pipefail
