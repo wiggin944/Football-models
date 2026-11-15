@@ -1,8 +1,8 @@
-name: Global Alpha v15 SEC point-in-time event ablation
+name: Global Alpha v15B official SEC source availability
 on:
   push:
     branches:
-      - research/global-alpha-v15-earnings-context
+      - research/global-alpha-v15b-sec-official-probe
     paths:
       - research/global_alpha/**
       - .github/workflows/global-alpha-v13b.yml
@@ -10,26 +10,21 @@ on:
 permissions:
   contents: read
 jobs:
-  sec-event-ablation:
+  sec-probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Install modelling and market-data packages
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install numpy pandas scikit-learn requests yfinance
-      - name: Static check
-        run: python -m py_compile research/global_alpha/v15_sec_earnings_ablation.py
-      - name: US SEC filing-context vs price and shuffled placebo
-        run: python -u research/global_alpha/v15_sec_earnings_ablation.py 2>&1 | tee v15_sec_ablation.log
-      - name: Archive SEC experiment
+      - name: Install requests
+        run: python -m pip install requests
+      - name: Limited read-only SEC access check
+        run: python -u research/global_alpha/v15b_sec_official_probe.py 2>&1 | tee v15b_sec_source.log
+      - name: Save status diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v15-sec-filing-context
+          name: global-alpha-v15b-sec-source
           path: |
-            results/v15_sec_earnings_ablation.json
-            v15_sec_ablation.log
+            results/v15b_official_sec_source_probe.json
+            v15b_sec_source.log
           if-no-files-found: warn
-          retention-days: 30
