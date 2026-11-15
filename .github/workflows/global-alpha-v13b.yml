@@ -1,40 +1,44 @@
-name: Global Alpha v17D SEC original-filing point-in-time features
+name: Global Alpha v18 SEC fundamental context ablation
 on:
   push:
     branches:
-      - research/global-alpha-v17d-asof-feature-store
+      - research/global-alpha-v18-fundamentals-ablation
     paths:
       - research/global_alpha/**
       - .github/workflows/global-alpha-v13b.yml
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
-  original-filing-features:
+  sec-pit-ablation:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 30
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install research dependencies
-        run: python -m pip install duckdb pandas pyarrow numpy scikit-learn requests yfinance
-      - name: Validate the as-of anti-leakage tests
+      - name: Install modelling and price-data dependencies
+        run: python -m pip install numpy pandas pyarrow scikit-learn requests yfinance
+      - name: Recover original as-filed fundamental feature store
         run: |
-          python -m py_compile research/global_alpha/v17d_asof_fundamentals.py
-          python research/global_alpha/v17d_asof_fundamentals.py --synthetic-test
-      - name: Build original SEC-filing history and monthly features
+          mkdir -p source
+          gh run download 43761156057 --repo wiggin944/Football-models --name global-alpha-v17d-asof-features --dir source
+          test -s source/results/v17d_asof_fundamental_features.parquet
+      - name: Static check of chronological experiment
+        run: python -m py_compile research/global_alpha/v18_sec_fundamental_ablation.py
+      - name: Run matched price, SEC and shuffled SEC models
         run: |
           set -o pipefail
-          python -u research/global_alpha/v17d_asof_fundamentals.py 2>&1 | tee v17d_asof_build.log
-      - name: Preserve dataset and source audit
+          python -u research/global_alpha/v18_sec_fundamental_ablation.py 2>&1 | tee v18_sec_model.log
+      - name: Archive predictions, returns and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v17d-asof-features
+          name: global-alpha-v18-sec-filing-ablation
           path: |
-            results/v17d_asof_fundamental_features.parquet
-            results/v17d_asof_feature_report.json
-            v17d_asof_build.log
+            results/v18_sec_fundamental_ablation.json
+            results/v18_local_portfolios_checkpoint.json
+            v18_sec_model.log
           if-no-files-found: warn
-          retention-days: 30
+          retention-days: 45
