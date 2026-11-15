@@ -130,9 +130,9 @@ def main():
     testcase()
     m=mapping()
     names,_=v.region_symbols("sp500")
-    tmp=m[m.ticker.isin(names)].drop_duplicates("ticker")
+    tmp=m[m.ticker.isin(names)].copy()
     conflicts=tmp.groupby("ticker").cik_norm.nunique()
-    tmp=tmp[~tmp.ticker.isin(conflicts[conflicts>1].index)]
+    tmp=tmp[~tmp.ticker.isin(conflicts[conflicts>1].index)].drop_duplicates("ticker")
     ciks=sorted(set(tmp.cik_norm.dropna()))
     print("PIT_PULL",len(ciks),"CIKs from",len(names),"sampled historical security folders",flush=True)
     facts=filings(ciks)
