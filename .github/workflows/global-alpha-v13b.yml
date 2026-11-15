@@ -1,47 +1,35 @@
-name: Global Alpha v19 SEC as-filed quarterly TTM quality gate
+name: Global Alpha v20C ESEF European original publication time audit
 on:
   push:
     branches:
-      - research/global-alpha-v19-pit-quarterly-ttm
+      - research/global-alpha-v20c-europe-filings
     paths:
-      - research/global_alpha/v19_pit_ttm_peer_features.py
+      - research/global_alpha/v20c_europe_esef_source_probe.py
       - .github/workflows/global-alpha-v13b.yml
   workflow_dispatch:
 permissions:
   contents: read
-  actions: read
 jobs:
-  asfiled-quarterly-audit:
+  europe-esef:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
-      - name: Install numerical/file dependencies
-        run: python -m pip install pandas numpy pyarrow
-      - name: Verify original SEC filing checkpoint and identity snapshot
-        run: |
-          mkdir -p source
-          gh run download 43766604118 --repo wiggin944/Football-models --name global-alpha-v19-original-filing-raw --dir source
-          test -s source/results/v19_original_sec_facts.parquet
-          test -s source/results/v19_2026_ticker_cik_map.parquet
-      - name: Validate anti-leakage and Q4/TTM reconstruction tests
-        run: |
-          python -m py_compile research/global_alpha/v19_pit_ttm_peer_features.py
-          python research/global_alpha/v19_pit_ttm_peer_features.py --test-only
-      - name: Build as-of quarterly TTM and peer-relative financial features
+      - name: Install requests
+        run: python -m pip install requests
+      - name: Validate code
+        run: python -m py_compile research/global_alpha/v20c_europe_esef_source_probe.py
+      - name: Download static ESEF yearly index and inspect original published dates
         run: |
           set -o pipefail
-          python -u research/global_alpha/v19_pit_ttm_peer_features.py 2>&1 | tee v19_ttm_quality.log
-      - name: Preserve company-month features and full quality audit
+          python -u research/global_alpha/v20c_europe_esef_source_probe.py 2>&1 | tee v20c_esef.log
+      - name: Preserve date/source audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v19-sec-ttm-peer-quality
+          name: global-alpha-v20c-europe-filings-publication
           path: |
-            results/v19_pit_ttm_sector_peer_features.parquet
-            results/v19_ttm_quality_report.json
-            v19_ttm_quality.log
+            results/v20c_eu_filings_publication_gate.json
+            v20c_esef.log
           if-no-files-found: warn
-          retention-days: 75
+          retention-days: 50
