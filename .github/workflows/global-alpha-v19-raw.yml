@@ -1,0 +1,39 @@
+name: Global Alpha v19 verified SEC filing vintage checkpoint
+on:
+  push:
+    branches:
+      - research/global-alpha-v19-pit-quarterly-ttm
+    paths:
+      - research/global_alpha/v19_raw_filing_checkpoint.py
+      - .github/workflows/global-alpha-v19-raw.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pin-asfiled-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install source readers
+        run: python -m pip install duckdb pandas pyarrow numpy scikit-learn requests yfinance zstandard
+      - name: Confirm original filing source can compile
+        run: python -m py_compile research/global_alpha/v19_raw_filing_checkpoint.py
+      - name: Export US as-filed accession rows with PIT filing dates
+        run: |
+          set -o pipefail
+          python -u research/global_alpha/v19_raw_filing_checkpoint.py 2>&1 | tee v19_raw.log
+      - name: Persist reusable vetted source files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: global-alpha-v19-original-filing-raw
+          path: |
+            results/v19_original_sec_facts.parquet
+            results/v19_2026_ticker_cik_map.parquet
+            results/v19_raw_extract_audit.json
+            v19_raw.log
+          if-no-files-found: error
+          retention-days: 75
