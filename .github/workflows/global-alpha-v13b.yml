@@ -25,6 +25,10 @@ jobs:
         run: |
           set -o pipefail
           python -u research/global_alpha/v22_exit_price_continuity.py 2>&1 | tee v22_continuity.log
+      - name: Verify independent QRVO source with overlapping daily returns
+        run: |
+          set -o pipefail
+          python -u research/global_alpha/v22b_qrvo_stooq_audit.py 2>&1 | tee v22b_qrvo.log
       - name: Save strict historical exit-return audit
         if: always()
         uses: actions/upload-artifact@v4
@@ -33,5 +37,7 @@ jobs:
           path: |
             results/v22_exit_price_continuity_audit.json
             v22_continuity.log
+            results/v22b_qrvo_source_fallback.json
+            v22b_qrvo.log
           if-no-files-found: warn
           retention-days: 60
