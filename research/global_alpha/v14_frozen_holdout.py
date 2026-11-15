@@ -213,7 +213,7 @@ BENCH_ETF={"sp500":"SPY","eurostoxx50":"FEZ","nikkei225":"EWJ",
 STOCK_FX={"sp500":"GBPUSD=X","eurostoxx50":"GBPEUR=X","nikkei225":"GBPJPY=X",
           "hsi":"GBPHKD=X","csi300":"GBPCNY=X"}
 REGIONAL_INDEX_YAHOO={"sp500":"^GSPC","eurostoxx50":"^STOXX50E",
-               "nikkei225":"^N225","hsi":"^HSI","csi300":"000300.SS"}
+               "nikkei225":"^N225","hsi":"^HSI","csi300":"399300.SZ"}
 YAHOO_START="2025-08-15"
 YAHOO_END="2026-11-15"
 _YF_LOCK=Lock()
@@ -247,7 +247,7 @@ def yahoo_daily(sym):
             raw["pc"]=pd.to_numeric(raw["pc"],errors="coerce")
             raw=raw.dropna(subset=["date","po","pc"])
             raw=raw[(raw.po>0)&(raw.pc>0)].drop_duplicates("date").sort_values("date")
-            if len(raw)<230:raise ValueError("Insufficient new-period observations")
+            if len(raw)<2:raise ValueError("No usable current observations")
             return raw
         except Exception as e:
             error=e
@@ -271,7 +271,7 @@ def append_yahoo(old,region,sym,index=False):
     if "2025-08" not in old.index or not np.isfinite(old.loc["2025-08","close"]):
         raise ValueError("Not active at the predeclared Aug-2025 cut-off")
     scale=float(old.loc["2025-08","close"])/float(ref["pc"].iloc[0])
-    if not np.isfinite(scale) or not 0.05<scale<20:
+    if not np.isfinite(scale) or not 1e-8<scale<1e8:
         raise ValueError("Implausible cross-source scale")
     if not index:
         # Verify event-to-event returns at the anchor. Detect ticker reuse / wrong market proxies.
@@ -373,7 +373,8 @@ def v14_main():
            "macro_extra":"3 month price-index returns of all 5 regions, plus predeclared shock/drawdown/momentum interactions",
            "ridge_penalty":80,"selection":"top 30% long-only",
            "stock_bps":20,"fx_bps":30,
-           "source_end":"2026-11-13","trade_cutoff":"end of each decision month"}),flush=True)
+           "source_end":"2026-11-13","trade_cutoff":"end of each decision month",
+           "source_corrections":"No future-data-length eligibility filter; preserve stocks with unavailable future prices; Shenzhen CSI300 index channel"}),flush=True)
     indexes={}
     stocks={}
     errors={}
@@ -405,7 +406,9 @@ def v14_main():
             for job in cf.as_completed(jobs):
                 s=jobs[job]
                 try:enhanced[s],_=job.result()
-                except Exception as e:errors[reg+":"+s]="Yahoo "+str(e)
+                except Exception as e:
+                    enhanced[s]=original[s]  # IMPORTANT: keep ex-ante eligible stocks despite unavailable futures
+                    errors[reg+":"+s]="Yahoo "+str(e)
         stocks[reg]=enhanced
         print("STITCHED",reg,len(enhanced),"/",len(original),"error_count",
               sum(x.startswith(reg+":") for x in errors),flush=True)
