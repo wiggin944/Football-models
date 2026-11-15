@@ -1,40 +1,47 @@
-name: Global Alpha v20 full historical US SEC filing population
+name: Global Alpha v20B full-US point-in-time peer feature audit
 on:
   push:
     branches:
-      - research/global-alpha-v20-full-us-point-in-time
+      - research/global-alpha-v20b-full-us-peers
     paths:
-      - research/global_alpha/**
+      - research/global_alpha/v20b_full_us_pit_peer_quality.py
       - .github/workflows/global-alpha-v13b.yml
   workflow_dispatch:
 permissions:
   contents: read
   actions: read
 jobs:
-  full-us-source:
+  full-us-peer:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 35
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install required packages
-        run: python -m pip install duckdb pandas pyarrow numpy scikit-learn requests yfinance zstandard
-      - name: Compile expanded original SEC filing extract
-        run: python -m py_compile research/global_alpha/v20_full_us_original_filing.py
-      - name: Extract all historically observed S&P securities with original SEC filing vintages
+      - name: Install offline SEC feature dependencies
+        run: python -m pip install duckdb pandas pyarrow numpy requests
+      - name: Load verified original filing checkpoint
+        run: |
+          mkdir -p source
+          gh run download 43767863979 --repo wiggin944/Football-models --name global-alpha-v20-full-us-original-filings --dir source
+          test -s source/results/v20_original_sec_facts.parquet
+          test -s source/results/v20_us_security_mapping.parquet
+      - name: Compile and test accounting reconstruction
+        run: |
+          python -m py_compile research/global_alpha/v20b_full_us_pit_peer_quality.py
+          python research/global_alpha/v19_pit_ttm_peer_features.py --test-only
+      - name: Build historical TTM and time-consistent SIC peers for expanded universe
         run: |
           set -o pipefail
-          python -u research/global_alpha/v20_full_us_original_filing.py 2>&1 | tee global_alpha_v20_raw.log
-      - name: Save expanded historical issuer source and audit
+          python -u research/global_alpha/v20b_full_us_pit_peer_quality.py 2>&1 | tee v20b_full_peers.log
+      - name: Preserve expanded issuer panel and diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v20-full-us-original-filings
+          name: global-alpha-v20b-full-us-peer-coverage
           path: |
-            results/v20_original_sec_facts.parquet
-            results/v20_us_security_mapping.parquet
-            results/v20_full_us_source_audit.json
-            global_alpha_v20_raw.log
+            results/v20b_full_us_asfiled_ttm_peers.parquet
+            results/v20b_us_peer_coverage_audit.json
+            v20b_full_peers.log
           if-no-files-found: warn
           retention-days: 60
