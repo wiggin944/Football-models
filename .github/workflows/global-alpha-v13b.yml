@@ -1,8 +1,8 @@
-name: Global Alpha v16B pooled global peer-anomaly ML
+name: Global Alpha v17 SEC original-filing archive access
 on:
   push:
     branches:
-      - research/global-alpha-v16b-pooled-peer-ml
+      - research/global-alpha-v17-sec-pit-gate
     paths:
       - research/global_alpha/**
       - .github/workflows/global-alpha-v13b.yml
@@ -10,29 +10,24 @@ on:
 permissions:
   contents: read
 jobs:
-  pooled-global-peer:
+  source-check:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Install numerical & market data dependencies
-        run: python -m pip install numpy pandas scikit-learn requests yfinance
-      - name: Validate code syntax
-        run: python -m py_compile research/global_alpha/v16b_pooled_peer_ml.py
-      - name: Execute pooled global nonlinear peer ablation
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+      - name: Install requests
+        run: python -m pip install requests
+      - name: Probe official SEC as-filed archive access
         run: |
           set -o pipefail
-          python -u research/global_alpha/v16b_pooled_peer_ml.py 2>&1 | tee v16b_peer_ml.log
-      - name: Upload complete results
+          python -u research/global_alpha/v17_sec_quarter_probe.py 2>&1 | tee v17_sec_probe.log
+      - name: Save bounded download diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v16b-peer-ml-results
+          name: global-alpha-v17-sec-access-gate
           path: |
-            results/v16b_global_peer_ml.json
-            results/v16b_pre_fx_predictions.json
-            v16b_peer_ml.log
-          if-no-files-found: warn
+            results/v17_sec_quarter_access.json
+            v17_sec_probe.log
+          if-no-files-found: error
           retention-days: 30
