@@ -32,6 +32,7 @@ jobs:
           name: global-alpha-v16b-peer-ml-results
           path: |
             results/v16b_global_peer_ml.json
+            results/v16b_pre_fx_predictions.json
             v16b_peer_ml.log
           if-no-files-found: warn
           retention-days: 30
