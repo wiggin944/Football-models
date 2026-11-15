@@ -1,8 +1,8 @@
-name: Global Alpha v17 SEC original-filing archive access
+name: Global Alpha v17B SEC as-filed remote DuckDB query
 on:
   push:
     branches:
-      - research/global-alpha-v17-sec-pit-gate
+      - research/global-alpha-v17b-asfiled-mirror
     paths:
       - research/global_alpha/**
       - .github/workflows/global-alpha-v13b.yml
@@ -10,24 +10,24 @@ on:
 permissions:
   contents: read
 jobs:
-  source-check:
+  inspect:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
-      - name: Install requests
-        run: python -m pip install requests
-      - name: Probe official SEC as-filed archive access
+      - name: Install DuckDB
+        run: python -m pip install duckdb requests pandas
+      - name: Audit remote SEC point-in-time filing vintages
         run: |
           set -o pipefail
-          python -u research/global_alpha/v17_sec_quarter_probe.py 2>&1 | tee v17_sec_probe.log
-      - name: Save bounded download diagnostics
+          python -u research/global_alpha/v17b_hf_duckdb_probe.py 2>&1 | tee v17b_hf_probe.log
+      - name: Save source audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v17-sec-access-gate
+          name: global-alpha-v17b-mirror-source-audit
           path: |
-            results/v17_sec_quarter_access.json
-            v17_sec_probe.log
-          if-no-files-found: error
+            results/v17b_huggingface_asfiled_probe.json
+            v17b_hf_probe.log
+          if-no-files-found: warn
           retention-days: 30
