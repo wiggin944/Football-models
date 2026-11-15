@@ -157,7 +157,7 @@ def run():
     counters=defaultdict(int)
     for t in pd.period_range(DSTART,DEND,freq="M"):
         for r in REGIONS:
-            pane=build_panel(r,stocks[r],indexes[r],t)
+            pane=build_panel(r,stocks[r],indexes[r],indexes,t)
             if pane:
                 panels.append({"month":t,"region":r,"rows":pane})
                 counters[r]+=len(pane)
