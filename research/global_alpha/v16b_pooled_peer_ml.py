@@ -201,6 +201,9 @@ def run():
                 prev[reg][method]=w
         print("TEST_MONTH",str(t),"train_rows",len(train),
               "market_count",len(selected),flush=True)
+    Path("results").mkdir(exist_ok=True)
+    Path("results/v16b_pre_fx_predictions.json").write_text(json.dumps(results,indent=2))
+    print("MODEL_PREDICTIONS_SAVED",sum(len(rows) for region in results.values() for rows in region.values()),flush=True)
     fx={r:v.raw_monthly_yahoo(v.STOCK_FX[r]) for r in REGIONS}
     etfs={r:v.raw_monthly_yahoo(v.BENCH_ETF[r]) for r in REGIONS}
     usd=v.raw_monthly_yahoo("GBPUSD=X")
