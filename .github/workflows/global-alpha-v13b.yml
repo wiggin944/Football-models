@@ -1,8 +1,8 @@
-name: Global Alpha v14 frozen 2025-26 out-of-time study
+name: Global Alpha v14D four-region exploratory context repair
 on:
   push:
     branches:
-      - research/global-alpha-v14-forward-holdout
+      - research/global-alpha-v14d-four-market-context
     paths:
       - research/global_alpha/**
       - .github/workflows/global-alpha-v13b.yml
@@ -21,15 +21,15 @@ jobs:
           python -m pip install numpy pandas scikit-learn requests yfinance
       - name: Static validation of frozen research code
         run: python -m py_compile research/global_alpha/v14_frozen_holdout.py
-      - name: Execute frozen 2025-26 global out-of-time experiment
+      - name: Execute four-region 2025-26 context ablation
         run: python -u research/global_alpha/v14_frozen_holdout.py 2>&1 | tee global_alpha_v14.log
       - name: Archive results and run evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v14-frozen-holdout-results
+          name: global-alpha-v14d-context-repair-results
           path: |
-            results/v14_frozen_holdout_results.json
+            results/v14d_four_market_context_results.json
             global_alpha_v14.log
           if-no-files-found: warn
           retention-days: 30
