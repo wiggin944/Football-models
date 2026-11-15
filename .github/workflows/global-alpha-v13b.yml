@@ -1,40 +1,45 @@
-name: Global Alpha v24 historical US membership integrity check
+name: Global Alpha v25 worldwide intraday data and paper execution tests
 on:
   push:
     branches:
-      - research/global-alpha-v24-pit-membership-audit
+      - research/global-alpha-v25-intraday-paper-engine
     paths:
-      - research/global_alpha/v24_us_membership_vs_price.py
-      - research/global_alpha/global_security_master.py
+      - research/global_alpha/v25_global_intraday_paper_engine.py
+      - research/global_alpha/v25_global_intraday_data_audit.py
       - .github/workflows/global-alpha-v13b.yml
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  membership-data-quality:
+  market-data-and-paper-orders:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - name: Install source and modelling packages
-        run: python -m pip install numpy pandas scikit-learn requests yfinance
-      - name: Validate worldwide listing identity and fail-closed intraday data gates
-        run: python research/global_alpha/global_security_master.py
-      - name: Compile audit
-        run: python -m py_compile research/global_alpha/v24_us_membership_vs_price.py
-      - name: Measure historical index-membership versus price-eligibility mismatch
+      - name: Install intraday data research tools
+        run: python -m pip install pandas numpy yfinance
+      - name: Compile both independent components
+        run: |
+          python -m py_compile research/global_alpha/global_security_master.py
+          python -m py_compile research/global_alpha/v25_global_intraday_paper_engine.py
+          python -m py_compile research/global_alpha/v25_global_intraday_data_audit.py
+      - name: Test global as-of listing identity and time-aware paper execution
         run: |
           set -o pipefail
-          python -u research/global_alpha/v24_us_membership_vs_price.py 2>&1 | tee v24_membership_audit.log
-      - name: Preserve historical integrity findings
+          python research/global_alpha/global_security_master.py
+          python research/global_alpha/v25_global_intraday_paper_engine.py 2>&1 | tee v25_paper_engine_test.log
+      - name: Audit eleven markets for real recent five-minute research bars
+        run: |
+          set -o pipefail
+          python -u research/global_alpha/v25_global_intraday_data_audit.py 2>&1 | tee v25_market_data_audit.log
+      - name: Persist complete quality and safety diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v24-membership-source-audit
+          name: global-alpha-v25-worldwide-intraday-and-paper-engine
           path: |
-            results/v24_us_membership_vs_price_coverage.json
-            v24_membership_audit.log
+            results/v25_intraday_5m_global_coverage.json
+            v25_paper_engine_test.log
+            v25_market_data_audit.log
           if-no-files-found: warn
           retention-days: 50
