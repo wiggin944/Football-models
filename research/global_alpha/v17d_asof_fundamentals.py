@@ -41,7 +41,18 @@ def filings(ciks):
     db.execute("INSTALL httpfs");db.execute("LOAD httpfs")
     db.execute("SET http_timeout=90000")
     db.execute("SET memory_limit='5GB'")
-    db.execute("ATTACH ? AS filings (READ_ONLY)",[HF_FIN])
+    # Hugging Face resolver can rate-limit thousands of DuckDB range GETs.
+    # Resolve ONCE to the provider-authorised signed CDN URL; DuckDB reads
+    # byte ranges from that URL without repeatedly hitting the HF resolver.
+    redirect=requests.head(HF_FIN,allow_redirects=True,timeout=45)
+    redirect.raise_for_status()
+    direct=redirect.url
+    host=requests.utils.urlparse(direct).hostname or ""
+    if not host.endswith(".hf.co") or host=="huggingface.co":
+        raise RuntimeError("Expected an authorised Hugging Face CDN redirect, got "+host)
+    print("SIGNED_CDN_SOURCE",host,"bytes",redirect.headers.get("Content-Length"),flush=True)
+    db.execute("SET threads=4")
+    db.execute("ATTACH ? AS filings (READ_ONLY)",[direct])
     params=list(ciks)+list(TAGS)
     sql=f"""SELECT s.cik,s.adsh,s.filed,s.accepted,s.form,s.sic,
          n.tag,n.ddate,n.qtrs,n.uom,n.value
