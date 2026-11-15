@@ -242,7 +242,7 @@ def yahoo_daily(sym):
                 raw=hist[[col,"Open","Close"]].rename(columns={col:"date","Open":"po","Close":"pc"})
                 f.parent.mkdir(parents=True,exist_ok=True)
                 raw.to_csv(f,index=False)
-            raw["date"]=pd.to_datetime(raw["date"],utc=True).dt.date
+            raw["date"]=pd.to_datetime(raw["date"]).dt.date
             raw["po"]=pd.to_numeric(raw["po"],errors="coerce")
             raw["pc"]=pd.to_numeric(raw["pc"],errors="coerce")
             raw=raw.dropna(subset=["date","po","pc"])
@@ -368,6 +368,7 @@ def simple_bootstrap_paired(a,b,seed=29091,B=25000,block=3):
             "caveat":"Descriptive block bootstrap, NOT independent validation or a CAGR confidence interval."}
 
 def v14_main():
+    global feat
     print("FROZEN_SETTINGS",json.dumps({"sample_seed":SEED,"start":START,"end":END,
            "macro_extra":"3 month price-index returns of all 5 regions",
            "ridge_penalty":80,"selection":"top 30% long-only",
@@ -426,7 +427,6 @@ def v14_main():
              "errors":errors,"counts":history,"regions":{}}
     for reg in REGIONS:
         if len(stocks[reg])<8:continue
-        global feat
         feat=orig_feat
         basic=evaluate(reg,stocks[reg],indexes[reg],history[reg]["symbol_folders"],{})
         def augmented(stock,market,mon):
