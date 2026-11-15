@@ -1,49 +1,30 @@
-name: Global Alpha v25 worldwide intraday data and paper execution tests
+name: Global Alpha v27 simple global factor archives source validation
 on:
   push:
     branches:
-      - research/global-alpha-v25-intraday-paper-engine
+      - research/global-alpha-v27-simple-global-factors
     paths:
-      - research/global_alpha/v25_global_intraday_paper_engine.py
-      - research/global_alpha/v25_global_intraday_data_audit.py
-      - research/global_alpha/v25_worldwide_listings_adapter.py
+      - research/global_alpha/v27_french_source_probe.py
       - .github/workflows/global-alpha-v13b.yml
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  market-data-and-paper-orders:
+  factor-source-audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Install intraday data research tools
-        run: python -m pip install pandas numpy yfinance
-      - name: Compile both independent components
-        run: |
-          python -m py_compile research/global_alpha/global_security_master.py
-          python -m py_compile research/global_alpha/v25_global_intraday_paper_engine.py
-          python -m py_compile research/global_alpha/v25_global_intraday_data_audit.py
-          python -m py_compile research/global_alpha/v25_worldwide_listings_adapter.py
-      - name: Test global as-of listing identity and time-aware paper execution
+      - name: Install archive reader
+        run: python -m pip install requests
+      - name: Audit 12 global quality-value-momentum research return files
         run: |
           set -o pipefail
-          python research/global_alpha/global_security_master.py
-          python research/global_alpha/v25_global_intraday_paper_engine.py 2>&1 | tee v25_paper_engine_test.log
-      - name: Test all-exchange active plus delisted discovery (no credential used)
-        run: python research/global_alpha/v25_worldwide_listings_adapter.py --self-test
-      - name: Audit eleven markets for real recent five-minute research bars
-        run: |
-          set -o pipefail
-          python -u research/global_alpha/v25_global_intraday_data_audit.py 2>&1 | tee v25_market_data_audit.log
-      - name: Persist complete quality and safety diagnostics
+          python -u research/global_alpha/v27_french_source_probe.py 2>&1 | tee v27_factor_source.log
+      - name: Save source metadata
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v25-worldwide-intraday-and-paper-engine
-          path: |
-            results/v25_intraday_5m_global_coverage.json
-            v25_paper_engine_test.log
-            v25_market_data_audit.log
+          name: global-alpha-v27-factor-source
+          path: v27_factor_source.log
           if-no-files-found: warn
-          retention-days: 50
