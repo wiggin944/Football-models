@@ -217,6 +217,7 @@ def main():
             monthly.append({"ticker":str(row.ticker),"cik":cik,"month":str(month),
                             "decision_date":str(date),**feat})
     frame=pd.DataFrame(monthly)
+    DEST.mkdir(parents=True,exist_ok=True)
     frame.to_parquet(DEST/"v17d_asof_fundamental_features.parquet",index=False)
     metrics=["revenue_yoy","net_margin","leverage_liabilities_assets","cash_assets"]
     period=frame[frame.month.between("2025-08","2026-09")]
