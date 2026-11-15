@@ -1,44 +1,39 @@
-name: Global Alpha v18 SEC fundamental context ablation
+name: Global Alpha v19 verified SEC filing vintage checkpoint
 on:
   push:
     branches:
-      - research/global-alpha-v18-fundamentals-ablation
+      - research/global-alpha-v19-pit-quarterly-ttm
     paths:
-      - research/global_alpha/**
-      - .github/workflows/global-alpha-v13b.yml
+      - research/global_alpha/v19_raw_filing_checkpoint.py
+      - .github/workflows/global-alpha-v19-raw.yml
   workflow_dispatch:
 permissions:
   contents: read
-  actions: read
 jobs:
-  sec-pit-ablation:
+  pin-asfiled-source:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install modelling and price-data dependencies
-        run: python -m pip install numpy pandas pyarrow scikit-learn requests yfinance
-      - name: Recover original as-filed fundamental feature store
-        run: |
-          mkdir -p source
-          gh run download 43761156057 --repo wiggin944/Football-models --name global-alpha-v17d-asof-features --dir source
-          test -s source/results/v17d_asof_fundamental_features.parquet
-      - name: Static check of chronological experiment
-        run: python -m py_compile research/global_alpha/v18_sec_fundamental_ablation.py
-      - name: Run matched price, SEC and shuffled SEC models
+      - name: Install source readers
+        run: python -m pip install duckdb pandas pyarrow numpy scikit-learn requests yfinance zstandard
+      - name: Confirm original filing source can compile
+        run: python -m py_compile research/global_alpha/v19_raw_filing_checkpoint.py
+      - name: Export US as-filed accession rows with PIT filing dates
         run: |
           set -o pipefail
-          python -u research/global_alpha/v18_sec_fundamental_ablation.py 2>&1 | tee v18_sec_model.log
-      - name: Archive predictions, returns and diagnostics
+          python -u research/global_alpha/v19_raw_filing_checkpoint.py 2>&1 | tee v19_raw.log
+      - name: Persist reusable vetted source files
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v18-sec-filing-ablation
+          name: global-alpha-v19-original-filing-raw
           path: |
-            results/v18_sec_fundamental_ablation.json
-            results/v18_local_portfolios_checkpoint.json
-            v18_sec_model.log
-          if-no-files-found: warn
-          retention-days: 45
+            results/v19_original_sec_facts.parquet
+            results/v19_2026_ticker_cik_map.parquet
+            results/v19_raw_extract_audit.json
+            v19_raw.log
+          if-no-files-found: error
+          retention-days: 75
