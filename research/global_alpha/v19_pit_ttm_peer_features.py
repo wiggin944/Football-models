@@ -77,8 +77,9 @@ def get_quarters(known,tag):
         if yearend in raw_q:continue
         # FY fourth quarter equals known FY total minus the THREE quarters
         # originally available by that FY report's availability date.
-        earlier=[(end,r) for end,r in raw_q.items()
-                 if 40<(yearend-end).days<355 and r["available"]<=fy["available"]]
+        quarter_versions=[r for r in known if r["tag"]==tag and r["qtrs"]==1
+            and r["available"]<=fy["available"] and 40<(yearend-r["end"]).days<355]
+        earlier=list(by_period(quarter_versions,tag,1).items())
         if len(earlier)<3:continue
         earlier.sort(key=lambda z:z[0],reverse=True)
         recent=earlier[:3]
@@ -225,6 +226,12 @@ def tests():
     newer=mk(tag,D(2023,6,30),99,D(2025,4,1),"Q2_REVISED")
     earlier=[x for x in r+[newer] if x["available"]<=D(2024,2,25)]
     assert ttms(earlier,"revenue",D(2024,2,25))["value"]==100
+    # Even after a future amendment becomes visible, FY Q4 uses the versions
+    # known when the annual FY total was first available, rather than dropping
+    # the original quarter when a newer version supersedes it.
+    revision_cut=[x for x in r+[newer] if x["available"]<=D(2025,4,10)]
+    frozen=get_quarters(revision_cut,tag)[0][D(2023,12,31)]
+    assert frozen["value"]==25
     # Negative profits remain negative, not silently discarded.
     loss=mk(CONCEPTS["earnings"][0],D(2023,3,31),-40,D(2023,5,1),"NEG")
     assert get_quarters([loss],loss["tag"])[0][D(2023,3,31)]["value"]==-40
