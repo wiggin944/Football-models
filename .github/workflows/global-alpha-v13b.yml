@@ -1,37 +1,44 @@
-name: Global Alpha v27 fixed global quality-value-momentum benchmark
+name: Global Alpha v27B frozen global factor vs actual world ETF
 on:
   push:
     branches:
       - research/global-alpha-v27-simple-global-factors
     paths:
-      - research/global_alpha/v27_simple_global_factor_backtest.py
+      - research/global_alpha/v27b_broad_world_vt_comparator.py
       - .github/workflows/global-alpha-v13b.yml
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 jobs:
-  global-factor-hypothesis:
+  global-market-vt-audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install research dependencies
-        run: python -m pip install numpy pandas requests
-      - name: Static validation of frozen global-factor weights
-        run: python -m py_compile research/global_alpha/v27_simple_global_factor_backtest.py
-      - name: Run 1995-2026 dividend-inclusive US, developed-ex-US and emerging portfolio experiment
+      - name: Install modelling and Yahoo adjusted-price libraries
+        run: python -m pip install numpy pandas requests yfinance
+      - name: Verify frozen benchmark before loading real global ETF
+        run: |
+          mkdir -p results
+          gh run download 43776368409 --repo wiggin944/Football-models --name global-alpha-v27-frozen-multifactor-research --dir .
+          test -s results/v27_monthly_factor_returns.csv
+          test -s results/v27_global_factor_research.json
+          ls results/original_french_source_archives/*.zip | wc -l
+      - name: Compare predeclared global multi-factor strategy against real broad VT world ETF
         run: |
           set -o pipefail
-          python -u research/global_alpha/v27_simple_global_factor_backtest.py 2>&1 | tee v27_global_factor_backtest.log
-      - name: Preserve original research-source ZIPs, monthly returns and audit
+          python -u research/global_alpha/v27b_broad_world_vt_comparator.py 2>&1 | tee v27b_vt_comparison.log
+      - name: Save actual world ETF comparison and monthly pairing
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: global-alpha-v27-frozen-multifactor-research
+          name: global-alpha-v27b-actual-global-etf-comparison
           path: |
-            results/original_french_source_archives/*.zip
-            results/v27_monthly_factor_returns.csv
-            results/v27_global_factor_research.json
-            v27_global_factor_backtest.log
+            results/v27b_vt_benchmark_audit.json
+            results/v27b_VT_matched_monthly.csv
+            v27b_vt_comparison.log
           if-no-files-found: warn
           retention-days: 75
