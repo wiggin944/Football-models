@@ -41,7 +41,7 @@ def clean_frame(f):
         if r.tag not in TAG_KIND:continue
         kind,priority=TAG_KIND[r.tag]
         qtrs=int(r.qtrs)
-        if kind in FLOW_KINDS and qtrs not in (1,4):continue
+        if kind in FLOW_KINDS and qtrs not in (1,2,3,4):continue
         if kind in BALANCE_KINDS and qtrs!=0:continue
         if r.uom!="USD" or not np.isfinite(float(r.value)):continue
         filed=as_date(r.filed)
@@ -68,31 +68,63 @@ def quarter_gap_is_valid(older,newer):
     d=(newer-older).days
     return GAP_MIN<=d<=GAP_MAX
 
-def get_quarters(known,tag):
-    raw_q=by_period(known,tag,1)
-    annuals=by_period(known,tag,4)
-    chosen=dict(raw_q)
+def find_prior_at_filing(known,tag,qtrs,current_end,current_available):
+    """Find immediately preceding YTD fact in SAME tag, eligible at current filing.
+    Crucially uses an old vintage even if a later restatement now exists.
+    """
+    matches=[r for r in known if r["tag"]==tag and r["qtrs"]==qtrs
+        and r["available"]<=current_available and r["end"]<current_end
+        and quarter_gap_is_valid(r["end"],current_end)]
+    if not matches:return None
+    newest=max(r["end"] for r in matches)
+    return latest([r for r in matches if r["end"]==newest])
+
+def derived_from_cumulative(known,tag,quarter):
+    """Q2=6m-Q1, Q3=9m-6m, Q4=FY-9m as originally available.
+    Each result is attached to its own cumulative filing's publication date.
+    """
+    if quarter not in (2,3,4):raise ValueError("Only cumulative quarters 2/3/4")
+    cumulative=by_period(known,tag,quarter)
     derived={}
+    for end,cur in cumulative.items():
+        prior=find_prior_at_filing(known,tag,quarter-1,end,cur["available"])
+        if prior is None:continue
+        value=cur["value"]-prior["value"]
+        derived[end]={**cur,"value":value,"qtrs":1,
+              "source_accessions":[prior["adsh"],cur["adsh"]],
+              "synthetic_quarter":quarter,"synthetic_q4":quarter==4}
+    return derived
+
+def get_quarters(known,tag):
+    direct=by_period(known,tag,1)
+    quarters=dict(direct)
+    derived_q4={}
+    for q in (2,3,4):
+        for end,derived in derived_from_cumulative(known,tag,q).items():
+            # Prefer a genuine, as-filed standalone quarterly observation.
+            if end not in quarters:
+                quarters[end]=derived
+                if q==4:derived_q4[end]=derived
+    # Backward-compatible fallback if issuer reported Q1/Q2/Q3 direct,
+    # FY 12m, but not the nine-month cumulative FY Q3 value.
+    annuals=by_period(known,tag,4)
     for yearend,fy in annuals.items():
-        if yearend in raw_q:continue
-        # FY fourth quarter equals known FY total minus the THREE quarters
-        # originally available by that FY report's availability date.
-        quarter_versions=[r for r in known if r["tag"]==tag and r["qtrs"]==1
+        if yearend in quarters:continue
+        older=[r for r in known if r["tag"]==tag and r["qtrs"]==1
             and r["available"]<=fy["available"] and 40<(yearend-r["end"]).days<355]
-        earlier=list(by_period(quarter_versions,tag,1).items())
-        if len(earlier)<3:continue
-        earlier.sort(key=lambda z:z[0],reverse=True)
-        recent=earlier[:3]
-        q3,q2,q1=recent[0],recent[1],recent[2]
-        if not all(quarter_gap_is_valid(*pair) for pair in [
-              (q1[0],q2[0]),(q2[0],q3[0]),(q3[0],yearend)]):
-            continue
-        value=fy["value"]-sum(r["value"] for _,r in recent)
-        q4={**fy,"value":value,"qtrs":1,"synthetic_q4":True,
-            "source_accessions":[fy["adsh"]]+[r["adsh"] for _,r in reversed(recent)]}
-        chosen[yearend]=q4
-        derived[yearend]=q4
-    return chosen,derived
+        matched=by_period(older,tag,1)
+        recent=sorted(matched,reverse=True)[:3]
+        if len(recent)!=3:continue
+        q3,q2,q1=recent
+        if not all(quarter_gap_is_valid(*pair) for pair in (
+          (q1,q2),(q2,q3),(q3,yearend))):continue
+        recs=[matched[q] for q in (q1,q2,q3)]
+        q4={**fy,"value":fy["value"]-sum(r["value"] for r in recs),
+            "qtrs":1,"synthetic_q4":True,"synthetic_quarter":4,
+            "source_accessions":[r["adsh"] for r in recs]+[fy["adsh"]]}
+        quarters[yearend]=q4
+        derived_q4[yearend]=q4
+    return quarters,derived_q4
 
 def ttms(known,kind,asof):
     candidates=[]
@@ -232,6 +264,21 @@ def tests():
     revision_cut=[x for x in r+[newer] if x["available"]<=D(2025,4,10)]
     frozen=get_quarters(revision_cut,tag)[0][D(2023,12,31)]
     assert frozen["value"]==25
+    # Cash flow normally has cumulative 6m and 9m values, not direct Q2/Q3.
+    tagcf=CONCEPTS["opcash"][0]
+    flows=[
+        mk(tagcf,D(2023,3,31),10,D(2023,5,1),"CFO_Q1"),
+        mk(tagcf,D(2023,6,30),31,D(2023,8,1),"CFO_6M",qtrs=2),
+        mk(tagcf,D(2023,9,30),54,D(2023,11,1),"CFO_9M",qtrs=3),
+        mk(tagcf,D(2023,12,31),90,D(2024,2,15),"CFO_FY",qtrs=4)
+    ]
+    cfo=ttms(flows,"opcash",D(2024,2,25))
+    assert cfo is not None and cfo["value"]==90
+    reconstructed=get_quarters(flows,tagcf)[0]
+    assert reconstructed[D(2023,6,30)]["value"]==21
+    assert reconstructed[D(2023,9,30)]["value"]==23
+    assert reconstructed[D(2023,12,31)]["value"]==36
+    assert ttms([r for r in flows if r["available"]<=D(2024,2,18)],"opcash",D(2024,2,18)) is None
     # Negative profits remain negative, not silently discarded.
     loss=mk(CONCEPTS["earnings"][0],D(2023,3,31),-40,D(2023,5,1),"NEG")
     assert get_quarters([loss],loss["tag"])[0][D(2023,3,31)]["value"]==-40
