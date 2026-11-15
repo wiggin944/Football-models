@@ -174,7 +174,7 @@ def patched_performance():
     (OUT/"v23_patched_original_predictions.json").write_text(json.dumps(report,indent=2,default=str))
     print("V23_RETURN_REPAIR_RESULTS",json.dumps({
       "model_fit_changed":False,"patched":len(patched_seen),
-      "QRVO_returns":manual,
+      "QRVO_returns":{sym+"|"+mon:float(value) for (sym,mon),value in manual.items()},
       "strategies":{k:{"annualized_return_pct":v.get("cagr_usd_pct"),
                         "max_drawdown_pct":v.get("max_drawdown_pct"),
                         "meanIC":rank_stats[k]["mean_rank_ic"]} for k,v in stats.items()},
